@@ -1,0 +1,140 @@
+
+.job-descriptions-page {
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.jd-section {
+  margin-bottom: 24px;
+  padding: 27px;
+  background: #fff;
+  border: 1px solid #e6e9f0;
+  border-radius: 15px;
+  box-shadow: 0 5px 20px rgba(15, 23, 42, 0.035);
+}
+
+.jd-section h2 {
+  margin: 0 0 10px;
+  color: #1e293b;
+  font-size: 21px;
+}
+
+.jd-subtitle {
+  margin-bottom: 24px;
+  color: #718096;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.jd-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.jd-form label {
+  margin-top: 5px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.jd-form input,
+.jd-form textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #dce1eb;
+  border-radius: 9px;
+  color: #1e293b;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+}
+
+.jd-form textarea {
+  resize: vertical;
+  line-height: 1.7;
+}
+
+.jd-form input:focus,
+.jd-form textarea:focus {
+  outline: none;
+  border-color: #818cf8;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.09);
+}
+
+.jd-form button {
+  align-self: flex-start;
+  margin-top: 8px;
+  padding: 12px 18px;
+  border: none;
+  border-radius: 9px;
+  background: #4f46e5;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.jd-form button:hover {
+  background: #4338ca;
+}
+
+.jd-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.jd-message {
+  padding: 12px 14px;
+  margin-bottom: 18px;
+  border-radius: 8px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.jd-card {
+  margin-top: 14px;
+  padding: 20px;
+  border: 1px solid #e6e9f0;
+  border-radius: 11px;
+  background: #fafbfe;
+}
+
+.jd-card h3 {
+  margin: 0 0 8px;
+  color: #263247;
+  font-size: 17px;
+}
+
+.jd-company {
+  color: #4f46e5;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.jd-description {
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.jd-empty {
+  color: #718096;
+  font-size: 13px;
+}
+
+@media (max-width: 600px) {
+  .jd-section {
+    padding: 19px;
+  }
+
+  .jd-form button {
+    width: 100%;
+  }
+}
