@@ -2,6 +2,7 @@
 import { useState } from "react";
 import ResumeManager from "./ResumeManager";
 import SavedJobs from "./SavedJobs";
+import AnalysisForm from "./AnalysisForm";
 import JobDescriptions from "./JobDescriptions";
 import "./App.css";
 
@@ -12,7 +13,8 @@ export default function App() {
     { id: "dashboard", label: "Dashboard", icon: "⌂" },
     { id: "resumes", label: "My Resumes", icon: "▤" },
     { id: "jobs", label: "Saved Jobs", icon: "☆" },
-    { id: "jobDescriptions", label: "Job Descriptions", icon: "▣" }
+    { id: "jobDescriptions", label: "Job Descriptions", icon: "▣" },
+    { id: "analysis", label: "Analysis", icon: "✦" }
   ];
 
   const currentPage = navItems.find(item => item.id === page);
@@ -99,6 +101,7 @@ export default function App() {
 
           {page === "jobs" && <SavedJobs />}
           {page === "jobDescriptions" && <JobDescriptions />}
+          {page === "analysis" && <AnalysisForm />}
         </div>
 
         <footer className="app-footer">
