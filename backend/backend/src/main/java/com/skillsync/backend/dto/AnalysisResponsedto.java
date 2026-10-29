@@ -2,6 +2,7 @@ package com.skillsync.backend.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import com.skillsync.backend.entity.Analysis.Status;
 
@@ -22,5 +23,8 @@ public class AnalysisResponsedto
     private Status status;
     private BigDecimal matchScore;
     private LocalDateTime createdAt;
+    
+    private List<SkillEvidence> resumeSkills;
+    private List<SkillEvidence> jobSkills;
 
 }
