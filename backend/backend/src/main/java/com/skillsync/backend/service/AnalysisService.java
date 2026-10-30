@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.MatchResult;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.skillsync.backend.dto.AnalysisRequestdto;
 import com.skillsync.backend.dto.AnalysisResponsedto;
+import com.skillsync.backend.dto.MatchingResult;
 import com.skillsync.backend.dto.SkillEvidence;
 import com.skillsync.backend.entity.Analysis;
 import com.skillsync.backend.entity.JobDescription;
@@ -36,13 +38,15 @@ public class AnalysisService
     private final JobDescriptionRepository jrepo;
     private final SkillExtractionService skillser;
     private final ObjectMapper objectMapper;
-    public AnalysisService(AnalysisRepository arepo,ResumeRepository rrepo,JobDescriptionRepository jrepo,SkillExtractionService skillser,ObjectMapper objectMapper)
+    private final MatchingService mser;
+    public AnalysisService(AnalysisRepository arepo,ResumeRepository rrepo,JobDescriptionRepository jrepo,SkillExtractionService skillser,ObjectMapper objectMapper,MatchingService mser)
     {
         this.arepo=arepo;
         this.rrepo=rrepo;
         this.jrepo=jrepo;
         this.skillser=skillser;
          this.objectMapper = objectMapper;
+         this.mser=mser;
 
     }
     @Transactional 
@@ -73,6 +77,11 @@ public class AnalysisService
       List<SkillEvidence> resumeSkills=skillser.extractSkills(r.get().getExtractedText());
       List<SkillEvidence> jobSkills=skillser.extractSkills(j.get().getDescription());
 
+      MatchingResult rr=mser.calcuateMatch(resumeSkills,jobSkills);
+
+      ans.setMatchScore(rr.getMatchScore());
+      ans.setStatus(Status.COMPLETED);
+
 
       Map<String,Object> res=new LinkedHashMap<>();
       res.put("ResumeSkills",resumeSkills);
@@ -96,7 +105,7 @@ public class AnalysisService
       dt.setCreatedAt(a.getCreatedAt());
       dt.setResumeSkills(resumeSkills);
       dt.setJobSkills(jobSkills);
-
+      dt.setMatchingResult(rr);
       return dt;
 
 
