@@ -11,57 +11,51 @@ export default function AnalysisForm() {
   const [resumeId, setResumeId] = useState("");
   const [jobDescriptionId, setJobDescriptionId] = useState("");
 
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState(false);
   const [result, setResult] = useState(null);
+  const [message, setMessage] = useState("");
+
+  const [loading, setLoading] = useState(true);
+  const [analyzing, setAnalyzing] = useState(false);
 
   useEffect(() => {
-    async function loadOptions() {
-      setLoading(true);
-      setError(false);
-      setMessage("");
-
-      try {
-        const [resumeResponse, jobResponse] = await Promise.all([
-          fetch(`${API}/resumes`),
-          fetch(`${API}/jobs`)
-        ]);
-
-        if (!resumeResponse.ok || !jobResponse.ok) {
-          throw new Error(
-            "Unable to load resumes or job descriptions. Check the backend."
-          );
-        }
-
-        const resumeData = await resumeResponse.json();
-        const jobData = await jobResponse.json();
-
-        setResumes(resumeData);
-        setJobs(jobData);
-      } catch (err) {
-        setError(true);
-        setMessage(err.message || "Unable to load the required data.");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadOptions();
+    loadData();
   }, []);
+
+  async function loadData() {
+    setLoading(true);
+
+    try {
+      const [resumeResponse, jobResponse] = await Promise.all([
+        fetch(`${API}/resumes`),
+        fetch(`${API}/jobs`)
+      ]);
+
+      if (!resumeResponse.ok || !jobResponse.ok) {
+        throw new Error("Unable to load resumes or job descriptions.");
+      }
+
+      const resumeData = await resumeResponse.json();
+      const jobData = await jobResponse.json();
+
+      setResumes(resumeData);
+      setJobs(jobData);
+
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function createAnalysis(e) {
     e.preventDefault();
 
     if (!resumeId || !jobDescriptionId) {
-      setError(true);
       setMessage("Please select both a resume and a job description.");
       return;
     }
 
-    setSubmitting(true);
-    setError(false);
+    setAnalyzing(true);
     setMessage("");
     setResult(null);
 
@@ -77,39 +71,70 @@ export default function AnalysisForm() {
         })
       });
 
-      const data = await response.json().catch(() => ({}));
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.message ||
-          data.detail ||
-          "Unable to create the analysis. Check your backend."
-        );
+        throw new Error(data.message || "Analysis failed.");
       }
 
       setResult(data);
-      setMessage("Analysis record created successfully.");
-    } catch (err) {
-      setError(true);
-      setMessage(err.message || "Something went wrong.");
+      setMessage("Your resume analysis is ready.");
+
+    } catch (error) {
+      setMessage(error.message);
     } finally {
-      setSubmitting(false);
+      setAnalyzing(false);
     }
   }
 
+  const selectedJob = jobs.find(
+    job => String(job.id) === String(jobDescriptionId)
+  );
+
+  const matchingResult = result?.matchingResult || {};
+
+  const matchedSkills = matchingResult.matchedSkills || [];
+  const partialSkills = matchingResult.partialSkills || [];
+  const missingSkills = matchingResult.missingSkills || [];
+
+  const score = Number(result?.matchScore ?? 0);
+  const safeScore = Math.min(100, Math.max(0, score));
+
   return (
     <div className="analysis-page">
-      <section className="analysis-card">
-        <span className="analysis-eyebrow">RESUME AND ROLE MATCHING</span>
-        <h2>Analyze Your Career Fit</h2>
-        <p className="analysis-subtitle">
-          Choose a resume and a target job description to create an
-          analysis record.
-        </p>
+
+      {/* PAGE INTRODUCTION */}
+      <div className="analysis-page-heading">
+        <div>
+          <span className="analysis-eyebrow">
+            CAREER INTELLIGENCE
+          </span>
+          {/* <h2>Resume Analysis</h2> */}
+          <p>
+            Discover how well your skills match your target job.
+            Identify gaps and improve your career readiness.
+          </p>
+        </div>
+        <div className="analysis-heading-icon">✦</div>
+      </div>
+
+      {/* ANALYSIS FORM */}
+      <section className="analysis-form-card">
+
+        <div className="section-heading">
+          <div>
+            <h3>Start New Analysis</h3>
+            <p>Select a resume and job description to compare.</p>
+          </div>
+
+          <span className="section-icon">◎</span>
+        </div>
 
         {message && (
           <div
-            className={`analysis-message ${error ? "error" : "success"}`}
+            className={`analysis-message ${
+              result ? "success" : "error"
+            }`}
             role="status"
           >
             {message}
@@ -117,86 +142,303 @@ export default function AnalysisForm() {
         )}
 
         {loading ? (
-          <p>Loading resumes and job descriptions...</p>
+          <p className="analysis-loading">Loading your data...</p>
         ) : (
-          <form className="analysis-form" onSubmit={createAnalysis}>
-            <label htmlFor="analysis-resume">Select Resume *</label>
-            <select
-              id="analysis-resume"
-              value={resumeId}
-              onChange={e => setResumeId(e.target.value)}
-              required
-            >
-              <option value="">Choose a resume</option>
-              {resumes.map(resume => (
-                <option key={resume.id} value={resume.id}>
-                  {resume.filename ||
-                    resume.fileName ||
-                    `Resume #${resume.id}`}
-                </option>
-              ))}
-            </select>
+          <form onSubmit={createAnalysis} className="analysis-form">
 
-            {resumes.length === 0 && (
-              <p className="analysis-hint">
-                Upload a resume from the My Resumes page first.
-              </p>
-            )}
+            <div className="analysis-input-group">
+              <label htmlFor="resume-select">
+                Select Resume
+              </label>
 
-            <label htmlFor="analysis-job">Select Job Description *</label>
-            <select
-              id="analysis-job"
-              value={jobDescriptionId}
-              onChange={e => setJobDescriptionId(e.target.value)}
-              required
-            >
-              <option value="">Choose a job description</option>
-              {jobs.map(job => (
-                <option key={job.id} value={job.id}>
-                  {job.title}
-                  {job.company ? ` — ${job.company}` : ""}
-                </option>
-              ))}
-            </select>
+              <select
+                id="resume-select"
+                value={resumeId}
+                onChange={e => setResumeId(e.target.value)}
+                required
+              >
+                <option value="">Choose your resume</option>
 
-            {jobs.length === 0 && (
-              <p className="analysis-hint">
-                Add a job description from the Job Descriptions page first.
-              </p>
-            )}
+                {resumes.map(resume => (
+                  <option key={resume.id} value={resume.id}>
+                    {resume.fileName ||
+                      resume.name ||
+                      `Resume ${resume.id}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="analysis-input-group">
+              <label htmlFor="job-select">
+                Select Job Description
+              </label>
+
+              <select
+                id="job-select"
+                value={jobDescriptionId}
+                onChange={e => setJobDescriptionId(e.target.value)}
+                required
+              >
+                <option value="">Choose your target role</option>
+
+                {jobs.map(job => (
+                  <option key={job.id} value={job.id}>
+                    {job.title}
+                    {job.company ? ` - ${job.company}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <button
               type="submit"
-              className="analysis-button"
-              disabled={
-                submitting ||
-                resumes.length === 0 ||
-                jobs.length === 0
-              }
+              className="analysis-submit"
+              disabled={analyzing}
             >
-              {submitting ? "Creating Analysis..." : "Analyze My Fit"}
+              {analyzing ? "Analyzing..." : "Analyze Resume"}
+              {!analyzing && <span>→</span>}
             </button>
+
           </form>
         )}
+
+        {!loading && resumes.length === 0 && (
+          <p className="analysis-helper">
+            Upload a resume in My Resumes to get started.
+          </p>
+        )}
+
+        {!loading && jobs.length === 0 && (
+          <p className="analysis-helper">
+            Add a job description before starting an analysis.
+          </p>
+        )}
+
       </section>
 
+      {/* RESULTS */}
       {result && (
-        <section className="analysis-result">
-          <span className="analysis-result-icon">✓</span>
-          <div>
-            <h3>Analysis Created</h3>
-            <p>Analysis ID: {result.id}</p>
-            <p>Status: {result.status || "PENDING"}</p>
-            {result.matchScore != null && (
-              <p>Match Score: {result.matchScore}%</p>
-            )}
-            <p className="analysis-hint">
-              The record is saved. Actual resume-to-job matching will be
-              implemented in a later step.
-            </p>
+        <section className="analysis-report">
+
+          {/* REPORT HEADER */}
+          <div className="report-heading">
+            <div>
+              <span className="analysis-eyebrow">
+                ANALYSIS REPORT
+              </span>
+
+              <h3>Job Match Results</h3>
+
+              <p>
+                {selectedJob?.title || "Selected Job"}
+                {selectedJob?.company
+                  ? ` · ${selectedJob.company}`
+                  : ""}
+              </p>
+            </div>
+
+            <span className="report-status">
+              ✓ {result.status}
+            </span>
           </div>
+
+          {/* REPORT BODY */}
+          <div className="report-body">
+
+            {/* SCORE CARD */}
+            <div className="score-card">
+
+              <span className="score-label">OVERALL MATCH SCORE</span>
+
+              <div
+                className="score-ring"
+                style={{
+                  "--score": `${safeScore * 3.6}deg`
+                }}
+              >
+                <div className="score-ring-content">
+                  <strong>{safeScore.toFixed(0)}%</strong>
+                  <span>Match</span>
+                </div>
+              </div>
+
+              <h4>
+                {safeScore >= 75
+                  ? "Strong Match"
+                  : safeScore >= 50
+                  ? "Moderate Match"
+                  : "Needs Improvement"}
+              </h4>
+
+              <p>
+                {safeScore >= 75
+                  ? "Your skills align well with this job."
+                  : safeScore >= 50
+                  ? "You have a good foundation. Improve the missing skills."
+                  : "Focus on building the required skills for this role."}
+              </p>
+
+              <div className="score-breakdown">
+
+                <div>
+                  <strong>{matchedSkills.length}</strong>
+                  <span>Matched</span>
+                </div>
+
+                <div>
+                  <strong>{partialSkills.length}</strong>
+                  <span>Partial</span>
+                </div>
+
+                <div>
+                  <strong>{missingSkills.length}</strong>
+                  <span>Missing</span>
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* SKILL RESULTS */}
+            <div className="skill-results">
+
+              <SkillCategory
+                title="Matched Skills"
+                skills={matchedSkills}
+                type="matched"
+              />
+
+              <SkillCategory
+                title="Partially Matched Skills"
+                skills={partialSkills}
+                type="partial"
+              />
+
+              <SkillCategory
+                title="Missing Skills"
+                skills={missingSkills}
+                type="missing"
+              />
+
+            </div>
+
+          </div>
+
+          {/* SUMMARY */}
+          {matchingResult.summary && (
+            <div className="analysis-summary">
+              <div className="summary-icon">✦</div>
+
+              <div>
+                <h4>Analysis Insights</h4>
+                <p>{matchingResult.summary}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="report-footer">
+            <span>Analysis ID: #{result.id}</span>
+            <span>SkillSync AI</span>
+          </div>
+
         </section>
       )}
+
+      {/* EMPTY STATE */}
+      {!result && !loading && (
+        <section className="analysis-empty">
+          <div className="empty-icon">◎</div>
+
+          <h3>Your analysis report will appear here</h3>
+
+          <p>
+            Select your resume and target job above. Your match score,
+            matched skills, partial skills, and missing skills will
+            appear here after analysis.
+          </p>
+        </section>
+      )}
+
+    </div>
+  );
+}
+
+
+/* REUSABLE SKILL CATEGORY COMPONENT */
+
+function SkillCategory({ title, skills, type }) {
+
+  function getSkillName(item) {
+    if (typeof item === "string") return item;
+
+    return item?.skill ||
+      item?.skillName ||
+      item?.name ||
+      "Unknown Skill";
+  }
+
+  function getEvidence(item) {
+    if (typeof item === "string") return "";
+
+    return item?.evidence ||
+      item?.explanation ||
+      item?.reason ||
+      "";
+  }
+
+  const symbol = {
+    matched: "✓",
+    partial: "◐",
+    missing: "!"
+  };
+
+  return (
+    <div className={`skill-category ${type}`}>
+
+      <div className="skill-category-heading">
+        <div>
+          <span className="category-symbol">
+            {symbol[type]}
+          </span>
+
+          <h4>{title}</h4>
+        </div>
+
+        <span className="category-count">
+          {skills.length}
+        </span>
+      </div>
+
+      {skills.length === 0 ? (
+        <p className="no-skills">
+          No skills in this category.
+        </p>
+      ) : (
+        <div className="skill-list">
+
+          {skills.map((item, index) => (
+            <div className="skill-item" key={index}>
+
+              <div className="skill-item-name">
+                <span>{getSkillName(item)}</span>
+                <span className="skill-check">
+                  {symbol[type]}
+                </span>
+              </div>
+
+              {getEvidence(item) && (
+                <p className="skill-evidence">
+                  {getEvidence(item)}
+                </p>
+              )}
+
+            </div>
+          ))}
+
+        </div>
+      )}
+
     </div>
   );
 }

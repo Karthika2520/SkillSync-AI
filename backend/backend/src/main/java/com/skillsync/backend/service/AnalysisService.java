@@ -5,8 +5,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.regex.MatchResult;
 
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,7 @@ import com.skillsync.backend.repository.AnalysisRepository;
 import com.skillsync.backend.repository.JobDescriptionRepository;
 import com.skillsync.backend.repository.ResumeRepository;
 
+
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
@@ -39,6 +41,9 @@ public class AnalysisService
     private final SkillExtractionService skillser;
     private final ObjectMapper objectMapper;
     private final MatchingService mser;
+
+   
+    
     public AnalysisService(AnalysisRepository arepo,ResumeRepository rrepo,JobDescriptionRepository jrepo,SkillExtractionService skillser,ObjectMapper objectMapper,MatchingService mser)
     {
         this.arepo=arepo;
@@ -54,6 +59,7 @@ public class AnalysisService
     {
         Long resumeid=req.getResumeId();
         Long jobdescid=req.getJobdescriptionId();
+        
 
       Optional<Resume> r=rrepo.findById(resumeid);
       if(r.isEmpty()){

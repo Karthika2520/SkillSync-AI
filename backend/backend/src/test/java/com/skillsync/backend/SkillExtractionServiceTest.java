@@ -12,79 +12,69 @@ import org.junit.jupiter.api.Test;
 import com.skillsync.backend.dto.SkillEvidence;
 import com.skillsync.backend.service.SkillExtractionService;
 
-public class SkillExtractionServiceTest 
-{
-      private final SkillExtractionService service =
-            new SkillExtractionService();
+public class SkillExtractionServiceTest {
+        private final SkillExtractionService service;
 
-     @Test
-    void extractsSkillsAndAliases() {
+      public SkillExtractionServiceTest(SkillExtractionService service)
+      {
+        this.service=service;
+      }
 
-        String text = "I use JAVA, JS, Spring Boot and MySQL.";
+        @Test
+        void extractsSkillsAndAliases() {
 
-        List<SkillEvidence> results =
-                service.extractSkills(text);
+                String text = "I use JAVA, JS, Spring Boot and MySQL.";
 
-        List<String> skills = results.stream()
-                .map(SkillEvidence::getSkill)
-                .collect(Collectors.toList());
+                List<SkillEvidence> results = service.extractSkills(text);
 
-        assertTrue(skills.contains("Java"));
-        assertTrue(skills.contains("JavaScript"));
-        assertTrue(skills.contains("Spring Boot"));
-        assertTrue(skills.contains("MySQL"));
+                List<String> skills = results.stream()
+                                .map(SkillEvidence::getSkill)
+                                .collect(Collectors.toList());
 
-        assertEquals(
-                skills.size(),
-                skills.stream().distinct().count()
-        );
-    }
+                assertTrue(skills.contains("Java"));
+                assertTrue(skills.contains("JavaScript"));
+                assertTrue(skills.contains("Spring Boot"));
+                assertTrue(skills.contains("MySQL"));
 
-     @Test
-    void doesNotMatchSkillsInsideOtherWords() {
+                assertEquals(
+                                skills.size(),
+                                skills.stream().distinct().count());
+        }
 
-        String text =
-                "I develop JavaScript applications and use NoSQL.";
+        @Test
+        void doesNotMatchSkillsInsideOtherWords() {
 
-        List<SkillEvidence> results =
-                service.extractSkills(text);
+                String text = "I develop JavaScript applications and use NoSQL.";
 
-        List<String> skills = results.stream()
-                .map(SkillEvidence::getSkill)
-                .collect(Collectors.toList());
+                List<SkillEvidence> results = service.extractSkills(text);
 
-        assertTrue(skills.contains("JavaScript"));
-        assertFalse(skills.contains("Java"));
-        assertFalse(skills.contains("SQL"));
-    }
+                List<String> skills = results.stream()
+                                .map(SkillEvidence::getSkill)
+                                .collect(Collectors.toList());
 
-    @Test
-    void handlesEmptyText() {
-        assertTrue(service.extractSkills("").isEmpty());
-        assertTrue(service.extractSkills(null).isEmpty());
-    }
+                assertTrue(skills.contains("JavaScript"));
+                assertFalse(skills.contains("Java"));
+                assertFalse(skills.contains("SQL"));
+        }
 
-     @Test
-    void retainsEvidence() {
+        @Test
+        void handlesEmptyText() {
+                assertTrue(service.extractSkills("").isEmpty());
+                assertTrue(service.extractSkills(null).isEmpty());
+        }
 
-        List<SkillEvidence> results =
-                service.extractSkills(
-                        "I built an application using Spring Boot."
-                );
+        @Test
+        void retainsEvidence() {
 
-        SkillEvidence skill = results.stream()
-                .filter(s -> s.getSkill().equals("Spring Boot"))
-                .findFirst()
-                .orElseThrow();
+                List<SkillEvidence> results = service.extractSkills(
+                                "I built an application using Spring Boot.");
 
-        assertTrue(
-                skill.getEvidence().contains("Spring Boot")
-        );
-    }
+                SkillEvidence skill = results.stream()
+                                .filter(s -> s.getSkill().equals("Spring Boot"))
+                                .findFirst()
+                                .orElseThrow();
+
+                assertTrue(
+                                skill.getEvidence().contains("Spring Boot"));
+        }
 }
-
-
-
-
-
-
