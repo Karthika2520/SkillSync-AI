@@ -4,4 +4,6 @@
 **/.env
 **/.env.*
 !.env.example
+**/application.properties
 **/application-local.properties
+
