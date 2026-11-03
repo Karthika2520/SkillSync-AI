@@ -3,6 +3,7 @@ package com.skillsync.backend.controller;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,6 +18,7 @@ import jakarta.validation.Valid;
 
 @RestController 
 @RequestMapping("/api/auth")
+@CrossOrigin ("http://localhost:5173")
 public class AuthController 
 {
     private final AuthService ser;
