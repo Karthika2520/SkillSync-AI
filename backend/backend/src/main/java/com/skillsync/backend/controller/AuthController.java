@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.skillsync.backend.dto.AuthResponse;
 import com.skillsync.backend.dto.LoginRequest;
 import com.skillsync.backend.dto.RegisterRequest;
 import com.skillsync.backend.service.AuthService;
@@ -31,12 +32,13 @@ public class AuthController
         return ResponseEntity.status(HttpStatus.CREATED).body("User Registered Successfully!");
     }
     @PostMapping("/login")
-public ResponseEntity<String> login(
+public ResponseEntity<AuthResponse> login(
         @Valid @RequestBody LoginRequest request) {
 
-    ser.login(request);
+    AuthResponse r= ser.login(request);
+    return ResponseEntity.ok(r);
 
-    return ResponseEntity.ok("Login successful");
+    
 }
 
 

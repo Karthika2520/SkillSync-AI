@@ -9,16 +9,20 @@ import com.skillsync.backend.dto.LoginRequest;
 import com.skillsync.backend.dto.RegisterRequest;
 import com.skillsync.backend.entity.User;
 import com.skillsync.backend.repository.UserRepository;
+import com.skillsync.backend.security.JwtService;
+import com.skillsync.backend.dto.AuthResponse;
 
 @Service 
 public class AuthService 
 {
     private final UserRepository userrepo;
     private final PasswordEncoder passwordEncoder;
-    public AuthService(UserRepository u,PasswordEncoder p)
+    private final JwtService jwtService;
+    public AuthService(UserRepository u,PasswordEncoder p, JwtService jwtService)
     {
         this.userrepo=u;
         this.passwordEncoder=p;
+        this.jwtService=jwtService;
     }
 
     public User register(RegisterRequest req)
@@ -37,7 +41,7 @@ public class AuthService
 
     }
 
-   public User login(LoginRequest lr) {
+   public AuthResponse login(LoginRequest lr) {
 
     String email = lr.getEmail().trim().toLowerCase();
 
@@ -53,9 +57,10 @@ public class AuthService
         throw new IllegalArgumentException(
                 "Invalid email or password");
     }
+    String token = jwtService.generateToken(user.getEmail());
+    return new AuthResponse(token);
 
-    // Return authenticated user
-    return user;
+  
 }
 
 

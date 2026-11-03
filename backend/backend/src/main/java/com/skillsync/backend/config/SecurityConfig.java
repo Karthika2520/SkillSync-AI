@@ -1,3 +1,4 @@
+
 package com.skillsync.backend.config;
 
 import org.springframework.context.annotation.Bean;
@@ -8,22 +9,34 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
-@EnableWebSecurity  
-public class SecurityConfig 
-{
-    @Bean 
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception
-    {
-        http
-        .csrf(csrf->csrf.disable())
-        .authorizeHttpRequests(auth->auth
-        .requestMatchers("/api/auth/register","/api/auth/login").permitAll()
-        .anyRequest().authenticated())
+@EnableWebSecurity
+public class SecurityConfig {
 
-        .sessionManagement(session->session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http)
+            throws Exception {
+
+        http
+            .csrf(csrf -> csrf.disable())
+
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers(
+                    "/api/auth/register",
+                    "/api/auth/login"
+                ).permitAll()
+                .anyRequest().authenticated()
+            )
+
+            .oauth2ResourceServer(oauth2 ->
+                oauth2.jwt(jwt -> {})
+            )//oauth2ResourceServer() enables JWT bearer-token authentication.
+
+            .sessionManagement(session ->
+                session.sessionCreationPolicy(
+                    SessionCreationPolicy.STATELESS
+                )
+            );
 
         return http.build();
     }
-
-
 }
