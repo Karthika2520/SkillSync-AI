@@ -29,9 +29,6 @@ import com.skillsync.backend.repository.ResumeRepository;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
-// import com.fasterxml.jackson.core.JsonProcessingException;
-// import com.fasterxml.jackson.databind.ObjectMapper;
-
 @Service 
 public class AnalysisService 
 {
