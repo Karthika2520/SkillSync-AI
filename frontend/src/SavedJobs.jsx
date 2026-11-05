@@ -4,6 +4,19 @@ import "./SavedJobs.css";
 
 const API = "http://localhost:8080/api";
 
+// Get JWT authentication header
+function getAuthHeaders() {
+  const token = sessionStorage.getItem("token");
+
+  if (!token) {
+    throw new Error("Please login first.");
+  }
+
+  return {
+    Authorization: `Bearer ${token}`
+  };
+}
+
 export default function SavedJobs() {
   const [jobs, setJobs] = useState([]);
   const [title, setTitle] = useState("");
@@ -14,17 +27,27 @@ export default function SavedJobs() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Load all saved jobs
   async function loadJobs() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API}/saved-jobs`);
+      const response = await fetch(`${API}/saved-jobs`, {
+        method: "GET",
+        headers: getAuthHeaders()
+      });
 
       if (!response.ok) {
-        throw new Error("Unable to load saved jobs. Check the backend.");
+        if (response.status === 401 || response.status === 403) {
+          throw new Error("Session expired. Please login again.");
+        }
+
+        throw new Error("Unable to load saved jobs.");
       }
 
-      setJobs(await response.json());
+      const data = await response.json();
+      setJobs(data);
+
     } catch (error) {
       setMessage(error.message);
     } finally {
@@ -32,10 +55,12 @@ export default function SavedJobs() {
     }
   }
 
+  // Load jobs when component opens
   useEffect(() => {
     loadJobs();
   }, []);
 
+  // Save a new job
   async function saveJob(e) {
     e.preventDefault();
 
@@ -51,6 +76,7 @@ export default function SavedJobs() {
       const response = await fetch(`${API}/saved-jobs`, {
         method: "POST",
         headers: {
+          ...getAuthHeaders(),
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
@@ -61,23 +87,42 @@ export default function SavedJobs() {
         })
       });
 
-      const result = await response.json().catch(() => ({}));
-
       if (!response.ok) {
-        throw new Error(
-          result.detail ||
-          result.message ||
-          "Unable to save this job."
-        );
+        const errorText = await response.text();
+
+        let errorMessage = "Unable to save this job.";
+
+        try {
+          const result = JSON.parse(errorText);
+
+          errorMessage =
+            result.detail ||
+            result.message ||
+            errorMessage;
+        } catch {
+          if (errorText) {
+            errorMessage = errorText;
+          }
+        }
+
+        if (response.status === 401 || response.status === 403) {
+          errorMessage = "Session expired. Please login again.";
+        }
+
+        throw new Error(errorMessage);
       }
 
+      // Clear form after successful save
       setTitle("");
       setCompany("");
       setJobUrl("");
       setDescription("");
+
       setMessage("Job saved successfully.");
 
+      // Refresh saved jobs list
       await loadJobs();
+
     } catch (error) {
       setMessage(error.message);
     } finally {
@@ -85,6 +130,7 @@ export default function SavedJobs() {
     }
   }
 
+  // Delete a saved job
   async function deleteJob(id) {
     const confirmed = window.confirm(
       "Are you sure you want to remove this saved job?"
@@ -96,10 +142,15 @@ export default function SavedJobs() {
 
     try {
       const response = await fetch(`${API}/saved-jobs/${id}`, {
-        method: "DELETE"
+        method: "DELETE",
+        headers: getAuthHeaders()
       });
 
       if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          throw new Error("Session expired. Please login again.");
+        }
+
         throw new Error("Unable to remove this job.");
       }
 
@@ -108,6 +159,7 @@ export default function SavedJobs() {
       );
 
       setMessage("Job removed successfully.");
+
     } catch (error) {
       setMessage(error.message);
     }
@@ -115,11 +167,18 @@ export default function SavedJobs() {
 
   return (
     <div className="saved-jobs-page">
+
+      {/* Save Job Form */}
       <section className="sj-section">
+
         <div className="sj-heading">
           <div>
-            <span className="sj-eyebrow">OPPORTUNITY TRACKER</span>
+            <span className="sj-eyebrow">
+              OPPORTUNITY TRACKER
+            </span>
+
             <h2>Save a Job</h2>
+
             <p>
               Keep interesting opportunities in one place.
             </p>
@@ -135,8 +194,12 @@ export default function SavedJobs() {
         )}
 
         <form className="sj-form" onSubmit={saveJob}>
+
           <div className="sj-field">
-            <label htmlFor="job-title">Job title *</label>
+            <label htmlFor="job-title">
+              Job title *
+            </label>
+
             <input
               id="job-title"
               className="sj-input"
@@ -149,7 +212,10 @@ export default function SavedJobs() {
           </div>
 
           <div className="sj-field">
-            <label htmlFor="job-company">Company</label>
+            <label htmlFor="job-company">
+              Company
+            </label>
+
             <input
               id="job-company"
               className="sj-input"
@@ -161,7 +227,10 @@ export default function SavedJobs() {
           </div>
 
           <div className="sj-field sj-full-width">
-            <label htmlFor="job-url">Application URL</label>
+            <label htmlFor="job-url">
+              Application URL
+            </label>
+
             <input
               id="job-url"
               className="sj-input"
@@ -176,6 +245,7 @@ export default function SavedJobs() {
             <label htmlFor="job-description">
               Job description
             </label>
+
             <textarea
               id="job-description"
               className="sj-input sj-textarea"
@@ -196,27 +266,39 @@ export default function SavedJobs() {
               {saving ? "Saving..." : "+ Save Job"}
             </button>
           </div>
+
         </form>
       </section>
 
+      {/* Saved Jobs List */}
       <section className="sj-section">
+
         <div className="sj-list-heading">
           <div>
-            <span className="sj-eyebrow">YOUR OPPORTUNITIES</span>
+            <span className="sj-eyebrow">
+              YOUR OPPORTUNITIES
+            </span>
+
             <h2>My Saved Jobs</h2>
           </div>
 
-          <span className="sj-count">{jobs.length} jobs</span>
+          <span className="sj-count">
+            {jobs.length} jobs
+          </span>
         </div>
 
         {loading && (
-          <p className="sj-empty">Loading saved jobs...</p>
+          <p className="sj-empty">
+            Loading saved jobs...
+          </p>
         )}
 
         {!loading && jobs.length === 0 && (
           <div className="sj-empty">
             <div className="sj-empty-icon">☆</div>
+
             <h3>No saved jobs yet</h3>
+
             <p>
               Add your first job opportunity using the form above.
             </p>
@@ -226,6 +308,7 @@ export default function SavedJobs() {
         {!loading &&
           jobs.map(job => (
             <article className="sj-card" key={job.id}>
+
               <div className="sj-company-icon">
                 {(job.company || job.title || "J")
                   .charAt(0)
@@ -233,6 +316,7 @@ export default function SavedJobs() {
               </div>
 
               <div className="sj-job-details">
+
                 <h3>{job.title}</h3>
 
                 <p className="sj-company">
@@ -248,6 +332,7 @@ export default function SavedJobs() {
                 )}
 
                 <div className="sj-card-actions">
+
                   {job.jobUrl && (
                     <a
                       className="sj-application-link"
@@ -266,10 +351,12 @@ export default function SavedJobs() {
                   >
                     Remove
                   </button>
+
                 </div>
               </div>
             </article>
           ))}
+
       </section>
     </div>
   );

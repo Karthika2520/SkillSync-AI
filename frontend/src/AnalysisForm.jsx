@@ -4,6 +4,19 @@ import "./AnalysisForm.css";
 
 const API = "http://localhost:8080/api";
 
+// Get JWT authentication header
+function getAuthHeaders() {
+  const token = sessionStorage.getItem("token");
+
+  if (!token) {
+    throw new Error("Please login first.");
+  }
+
+  return {
+    Authorization: `Bearer ${token}`
+  };
+}
+
 export default function AnalysisForm() {
   const [resumes, setResumes] = useState([]);
   const [jobs, setJobs] = useState([]);
@@ -17,21 +30,42 @@ export default function AnalysisForm() {
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
 
+  // Load resumes and job descriptions
   useEffect(() => {
     loadData();
   }, []);
 
   async function loadData() {
     setLoading(true);
+    setMessage("");
 
     try {
+      const headers = getAuthHeaders();
+
       const [resumeResponse, jobResponse] = await Promise.all([
-        fetch(`${API}/resumes`),
-        fetch(`${API}/jobs`)
+        fetch(`${API}/resumes`, {
+          method: "GET",
+          headers
+        }),
+        fetch(`${API}/jobs`, {
+          method: "GET",
+          headers
+        })
       ]);
 
+      if (
+        resumeResponse.status === 401 ||
+        resumeResponse.status === 403 ||
+        jobResponse.status === 401 ||
+        jobResponse.status === 403
+      ) {
+        throw new Error("Session expired. Please login again.");
+      }
+
       if (!resumeResponse.ok || !jobResponse.ok) {
-        throw new Error("Unable to load resumes or job descriptions.");
+        throw new Error(
+          "Unable to load resumes or job descriptions."
+        );
       }
 
       const resumeData = await resumeResponse.json();
@@ -47,11 +81,14 @@ export default function AnalysisForm() {
     }
   }
 
+  // Create resume analysis
   async function createAnalysis(e) {
     e.preventDefault();
 
     if (!resumeId || !jobDescriptionId) {
-      setMessage("Please select both a resume and a job description.");
+      setMessage(
+        "Please select both a resume and a job description."
+      );
       return;
     }
 
@@ -63,6 +100,7 @@ export default function AnalysisForm() {
       const response = await fetch(`${API}/analysis`, {
         method: "POST",
         headers: {
+          ...getAuthHeaders(),
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
@@ -71,10 +109,18 @@ export default function AnalysisForm() {
         })
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(data.message || "Analysis failed.");
+        if (response.status === 401 || response.status === 403) {
+          throw new Error("Session expired. Please login again.");
+        }
+
+        throw new Error(
+          data.detail ||
+          data.message ||
+          "Analysis failed."
+        );
       }
 
       setResult(data);
@@ -109,12 +155,13 @@ export default function AnalysisForm() {
           <span className="analysis-eyebrow">
             CAREER INTELLIGENCE
           </span>
-          {/* <h2>Resume Analysis</h2> */}
+
           <p>
             Discover how well your skills match your target job.
             Identify gaps and improve your career readiness.
           </p>
         </div>
+
         <div className="analysis-heading-icon">✦</div>
       </div>
 
@@ -142,9 +189,14 @@ export default function AnalysisForm() {
         )}
 
         {loading ? (
-          <p className="analysis-loading">Loading your data...</p>
+          <p className="analysis-loading">
+            Loading your data...
+          </p>
         ) : (
-          <form onSubmit={createAnalysis} className="analysis-form">
+          <form
+            onSubmit={createAnalysis}
+            className="analysis-form"
+          >
 
             <div className="analysis-input-group">
               <label htmlFor="resume-select">
@@ -162,6 +214,7 @@ export default function AnalysisForm() {
                 {resumes.map(resume => (
                   <option key={resume.id} value={resume.id}>
                     {resume.fileName ||
+                      resume.filename ||
                       resume.name ||
                       `Resume ${resume.id}`}
                   </option>
@@ -177,10 +230,14 @@ export default function AnalysisForm() {
               <select
                 id="job-select"
                 value={jobDescriptionId}
-                onChange={e => setJobDescriptionId(e.target.value)}
+                onChange={e =>
+                  setJobDescriptionId(e.target.value)
+                }
                 required
               >
-                <option value="">Choose your target role</option>
+                <option value="">
+                  Choose your target role
+                </option>
 
                 {jobs.map(job => (
                   <option key={job.id} value={job.id}>
@@ -249,7 +306,9 @@ export default function AnalysisForm() {
             {/* SCORE CARD */}
             <div className="score-card">
 
-              <span className="score-label">OVERALL MATCH SCORE</span>
+              <span className="score-label">
+                OVERALL MATCH SCORE
+              </span>
 
               <div
                 className="score-ring"
@@ -422,6 +481,7 @@ function SkillCategory({ title, skills, type }) {
 
               <div className="skill-item-name">
                 <span>{getSkillName(item)}</span>
+
                 <span className="skill-check">
                   {symbol[type]}
                 </span>
