@@ -1,13 +1,15 @@
 package com.skillsync.backend.client;
 import java.util.List;
 import java.util.Map;
+import org.springframework.context.annotation.Primary;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
-@Component //telle the spring to manages bean creation & manages its lifecycle in ioc
+@Component
+@Primary //telle the spring to manages bean creation & manages its lifecycle in ioc
 public class GeminiClient implements LLMProvider
 {
   
