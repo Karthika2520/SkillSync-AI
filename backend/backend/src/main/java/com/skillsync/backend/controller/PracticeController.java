@@ -10,6 +10,8 @@ import com.skillsync.backend.dto.PracticeQuestionResponse;
 import com.skillsync.backend.service.PracticeService;
 
 import jakarta.validation.Valid;
+import java.util.List;
+import com.skillsync.backend.dto.PracticeAttemptResponse;
 
 @RestController
 @RequestMapping("/api/analysis")
@@ -23,20 +25,43 @@ public class PracticeController {
     }
 
     // Generate an interview question based on weak skills
-    @PostMapping("/{analysisId}/practice")
-    public ResponseEntity<PracticeQuestionResponse> generateQuestion(
-            @PathVariable Long analysisId,
-            @RequestParam(required = false) String difficulty) {
+    @PostMapping("/{analysisId}/generate")
+public ResponseEntity<List<PracticeQuestionResponse>> generateQuestions(
+        @PathVariable Long analysisId,
+        @RequestParam(required = false) String difficulty) {
 
-        PracticeQuestionResponse response =
-                pservice.generateQuestion(analysisId, difficulty);
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
+    return ResponseEntity.ok(
+            pservice.generateQuestion(analysisId, difficulty));
+}
 
     @PostMapping("/practice-attempt/{analysisId}/submit")
-    public ResponseEntity<?> answersubmission(@PathVariable Long id,@Valid  @RequestBody PracticeAnswerRequest req)
+    public ResponseEntity<?> answersubmission(@PathVariable("attemptId") Long attemptId,@Valid  @RequestBody PracticeAnswerRequest req)
     {
-        return ResponseEntity.ok(pservice.submitanswer(id,req));
+        return ResponseEntity.ok(pservice.submitanswer(attemptId,req));
     }
+    
+    // GET all practice attempts for an analysis
+    @GetMapping("/{analysisId}/practice-attempts")
+    public ResponseEntity<List<PracticeAttemptResponse>> getPracticeHistory(
+            @PathVariable Long analysisId) {
+
+        List<PracticeAttemptResponse> response =
+                pservice.getPracticeHistory(analysisId);
+
+        return ResponseEntity.ok(response);
+    }
+
+
+    // GET one practice attempt
+    @GetMapping("/practice-attempts/{attemptId}")
+    public ResponseEntity<PracticeAttemptResponse> getPracticeAttempt(
+            @PathVariable Long attemptId) {
+
+        PracticeAttemptResponse response =
+                pservice.getPracticeAttempt(attemptId);
+
+        return ResponseEntity.ok(response);
+    }
+
+
 }

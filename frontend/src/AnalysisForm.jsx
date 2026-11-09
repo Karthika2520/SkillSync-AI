@@ -4,7 +4,6 @@ import "./AnalysisForm.css";
 
 const API = "http://localhost:8080/api";
 
-// Get JWT authentication header
 function getAuthHeaders() {
   const token = sessionStorage.getItem("token");
 
@@ -17,7 +16,8 @@ function getAuthHeaders() {
   };
 }
 
-export default function AnalysisForm() {
+export default function AnalysisForm({ onStartPractice }) {
+
   const [resumes, setResumes] = useState([]);
   const [jobs, setJobs] = useState([]);
 
@@ -27,13 +27,21 @@ export default function AnalysisForm() {
   const [result, setResult] = useState(null);
   const [message, setMessage] = useState("");
 
+  // Previous analysis states
+  const [history, setHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [historyMessage, setHistoryMessage] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
 
-  // Load resumes and job descriptions
   useEffect(() => {
     loadData();
   }, []);
+
+  // =========================================
+  // LOAD RESUMES, JOBS AND PREVIOUS ANALYSES
+  // =========================================
 
   async function loadData() {
     setLoading(true);
@@ -43,14 +51,8 @@ export default function AnalysisForm() {
       const headers = getAuthHeaders();
 
       const [resumeResponse, jobResponse] = await Promise.all([
-        fetch(`${API}/resumes`, {
-          method: "GET",
-          headers
-        }),
-        fetch(`${API}/jobs`, {
-          method: "GET",
-          headers
-        })
+        fetch(`${API}/resumes`, { headers }),
+        fetch(`${API}/jobs`, { headers })
       ]);
 
       if (
@@ -63,9 +65,7 @@ export default function AnalysisForm() {
       }
 
       if (!resumeResponse.ok || !jobResponse.ok) {
-        throw new Error(
-          "Unable to load resumes or job descriptions."
-        );
+        throw new Error("Unable to load resumes or job descriptions.");
       }
 
       const resumeData = await resumeResponse.json();
@@ -79,16 +79,74 @@ export default function AnalysisForm() {
     } finally {
       setLoading(false);
     }
+
+    // Load history independently
+    loadAnalysisHistory();
   }
 
-  // Create resume analysis
+  // =========================================
+  // LOAD PREVIOUS ANALYSES
+  // =========================================
+
+  async function loadAnalysisHistory() {
+    setLoadingHistory(true);
+    setHistoryMessage("");
+
+    try {
+      const response = await fetch(`${API}/analysis`, {
+        method: "GET",
+        headers: getAuthHeaders()
+      });
+
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          throw new Error("Session expired. Please login again.");
+        }
+
+        throw new Error("Unable to load previous analyses.");
+      }
+
+      const data = await response.json();
+
+      setHistory(Array.isArray(data) ? data : []);
+
+    } catch (error) {
+      setHistoryMessage(error.message);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }
+
+  // =========================================
+  // VIEW PREVIOUS ANALYSIS
+  // =========================================
+
+  function viewPreviousAnalysis(analysis) {
+    setResult(analysis);
+
+    setResumeId(String(analysis.resumeId));
+    setJobDescriptionId(String(analysis.jobdescriptionId));
+
+    setMessage("Previous analysis loaded successfully.");
+
+    // Scroll to the report
+    setTimeout(() => {
+      document.querySelector(".analysis-report")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    }, 100);
+  }
+
+  // =========================================
+  // CREATE NEW ANALYSIS
+  // =========================================
+
   async function createAnalysis(e) {
     e.preventDefault();
 
     if (!resumeId || !jobDescriptionId) {
-      setMessage(
-        "Please select both a resume and a job description."
-      );
+      setMessage("Please select both a resume and a job description.");
       return;
     }
 
@@ -117,14 +175,15 @@ export default function AnalysisForm() {
         }
 
         throw new Error(
-          data.detail ||
-          data.message ||
-          "Analysis failed."
+          data.detail || data.message || "Analysis failed."
         );
       }
 
       setResult(data);
       setMessage("Your resume analysis is ready.");
+
+      // Refresh previous analyses after creating a new one
+      await loadAnalysisHistory();
 
     } catch (error) {
       setMessage(error.message);
@@ -133,8 +192,12 @@ export default function AnalysisForm() {
     }
   }
 
+  // =========================================
+  // RESULT DATA
+  // =========================================
+
   const selectedJob = jobs.find(
-    job => String(job.id) === String(jobDescriptionId)
+    job => String(job.id) === String(result?.jobdescriptionId || jobDescriptionId)
   );
 
   const matchingResult = result?.matchingResult || {};
@@ -150,6 +213,7 @@ export default function AnalysisForm() {
     <div className="analysis-page">
 
       {/* PAGE INTRODUCTION */}
+
       <div className="analysis-page-heading">
         <div>
           <span className="analysis-eyebrow">
@@ -165,7 +229,9 @@ export default function AnalysisForm() {
         <div className="analysis-heading-icon">✦</div>
       </div>
 
-      {/* ANALYSIS FORM */}
+
+      {/* NEW ANALYSIS FORM */}
+
       <section className="analysis-form-card">
 
         <div className="section-heading">
@@ -193,10 +259,7 @@ export default function AnalysisForm() {
             Loading your data...
           </p>
         ) : (
-          <form
-            onSubmit={createAnalysis}
-            className="analysis-form"
-          >
+          <form onSubmit={createAnalysis} className="analysis-form">
 
             <div className="analysis-input-group">
               <label htmlFor="resume-select">
@@ -230,14 +293,10 @@ export default function AnalysisForm() {
               <select
                 id="job-select"
                 value={jobDescriptionId}
-                onChange={e =>
-                  setJobDescriptionId(e.target.value)
-                }
+                onChange={e => setJobDescriptionId(e.target.value)}
                 required
               >
-                <option value="">
-                  Choose your target role
-                </option>
+                <option value="">Choose your target role</option>
 
                 {jobs.map(job => (
                   <option key={job.id} value={job.id}>
@@ -274,11 +333,127 @@ export default function AnalysisForm() {
 
       </section>
 
-      {/* RESULTS */}
+
+      {/* =====================================
+          PREVIOUS ANALYSES
+      ===================================== */}
+
+      <section className="previous-analyses">
+
+        <div className="section-heading">
+          <div>
+            <h3>Previous Analyses</h3>
+            <p>View and revisit your previous resume analyses.</p>
+          </div>
+
+          <span className="history-count">
+            {history.length}
+          </span>
+        </div>
+
+        {loadingHistory ? (
+          <p className="analysis-loading">
+            Loading previous analyses...
+          </p>
+        ) : historyMessage ? (
+          <div className="analysis-message error">
+            {historyMessage}
+            <button type="button" onClick={loadAnalysisHistory}>
+              Retry
+            </button>
+          </div>
+        ) : history.length === 0 ? (
+          <div className="analysis-empty">
+            <div className="empty-icon">◎</div>
+            <h3>No previous analyses</h3>
+            <p>
+              Your completed resume analyses will appear here.
+            </p>
+          </div>
+        ) : (
+          <div className="analysis-history-list">
+
+            {history.map(analysis => {
+
+              const analysisScore = Number(analysis.matchScore || 0);
+
+              const historyJob = jobs.find(
+                job => String(job.id) === String(analysis.jobdescriptionId)
+              );
+
+              const historyResume = resumes.find(
+                resume => String(resume.id) === String(analysis.resumeId)
+              );
+
+              return (
+                <div className="analysis-history-card" key={analysis.id}>
+
+                  <div className="history-card-top">
+
+                    <div>
+                      <span className="analysis-eyebrow">
+                        ANALYSIS #{analysis.id}
+                      </span>
+
+                      <h4>
+                        {historyJob?.title || `Job Description #${analysis.jobdescriptionId}`}
+                      </h4>
+
+                      <p>
+                        {historyResume?.fileName ||
+                          historyResume?.filename ||
+                          `Resume #${analysis.resumeId}`}
+                      </p>
+                    </div>
+
+                    <div className="history-score">
+                      <strong>
+                        {analysisScore.toFixed(0)}%
+                      </strong>
+                      <span>Match</span>
+                    </div>
+
+                  </div>
+
+                  <div className="history-card-bottom">
+
+                    <span className="history-status">
+                      {analysis.status}
+                    </span>
+
+                    <span className="history-date">
+                      {analysis.createdAt
+                        ? new Date(analysis.createdAt).toLocaleDateString()
+                        : ""}
+                    </span>
+
+                    <button
+                      type="button"
+                      className="history-view-button"
+                      onClick={() => viewPreviousAnalysis(analysis)}
+                    >
+                      View Report →
+                    </button>
+
+                  </div>
+
+                </div>
+              );
+            })}
+
+          </div>
+        )}
+
+      </section>
+
+
+      {/* =====================================
+          ANALYSIS REPORT
+      ===================================== */}
+
       {result && (
         <section className="analysis-report">
 
-          {/* REPORT HEADER */}
           <div className="report-heading">
             <div>
               <span className="analysis-eyebrow">
@@ -300,10 +475,11 @@ export default function AnalysisForm() {
             </span>
           </div>
 
-          {/* REPORT BODY */}
+
           <div className="report-body">
 
             {/* SCORE CARD */}
+
             <div className="score-card">
 
               <span className="score-label">
@@ -359,7 +535,9 @@ export default function AnalysisForm() {
 
             </div>
 
+
             {/* SKILL RESULTS */}
+
             <div className="skill-results">
 
               <SkillCategory
@@ -384,7 +562,7 @@ export default function AnalysisForm() {
 
           </div>
 
-          {/* SUMMARY */}
+
           {matchingResult.summary && (
             <div className="analysis-summary">
               <div className="summary-icon">✦</div>
@@ -396,26 +574,20 @@ export default function AnalysisForm() {
             </div>
           )}
 
+
           <div className="report-footer">
             <span>Analysis ID: #{result.id}</span>
             <span>SkillSync AI</span>
           </div>
 
-        </section>
-      )}
+          <button
+            type="button"
+            className="practice-start-button"
+            onClick={() => onStartPractice(result.id)}
+          >
+            Practice My Weak Areas →
+          </button>
 
-      {/* EMPTY STATE */}
-      {!result && !loading && (
-        <section className="analysis-empty">
-          <div className="empty-icon">◎</div>
-
-          <h3>Your analysis report will appear here</h3>
-
-          <p>
-            Select your resume and target job above. Your match score,
-            matched skills, partial skills, and missing skills will
-            appear here after analysis.
-          </p>
         </section>
       )}
 
@@ -424,7 +596,9 @@ export default function AnalysisForm() {
 }
 
 
-/* REUSABLE SKILL CATEGORY COMPONENT */
+// =========================================
+// REUSABLE SKILL CATEGORY COMPONENT
+// =========================================
 
 function SkillCategory({ title, skills, type }) {
 

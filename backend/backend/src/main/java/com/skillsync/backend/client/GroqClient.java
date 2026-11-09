@@ -4,10 +4,13 @@ package com.skillsync.backend.client;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 @Component
 public class GroqClient implements LLMProvider {
@@ -18,11 +21,14 @@ public class GroqClient implements LLMProvider {
 
     public GroqClient(
             RestClient.Builder builder,
+            @Qualifier("llmRequestFactory")
+            ClientHttpRequestFactory requestFactory,
             @Value("${groq.api.key}") String apiKey,
             @Value("${groq.api.model}") String model) {
 
         this.restClient = builder
                 .baseUrl("https://api.groq.com/openai/v1")
+                .requestFactory(requestFactory)
                 .build();
 
         this.apiKey = apiKey;
@@ -32,6 +38,8 @@ public class GroqClient implements LLMProvider {
     @Override
     public String generateContent(String prompt) {
 
+        long start = System.currentTimeMillis();
+
         Map<String, Object> reqBody = Map.of(
                 "model", model,
                 "messages", List.of(
@@ -39,10 +47,16 @@ public class GroqClient implements LLMProvider {
                                 "role", "user",
                                 "content", prompt
                         )
+                ),
+                "max_tokens", 512,
+                "response_format", Map.of(
+                        "type", "json_object"
                 )
         );
 
         try {
+
+            System.out.println("Calling Groq API...");
 
             Map<?, ?> response = restClient.post()
                     .uri("/chat/completions")
@@ -61,6 +75,7 @@ public class GroqClient implements LLMProvider {
 
             if (!(choicesObject instanceof List<?> choices)
                     || choices.isEmpty()) {
+
                 throw new IllegalStateException(
                         "Groq returned no choices");
             }
@@ -69,6 +84,7 @@ public class GroqClient implements LLMProvider {
                     ((Map<?, ?>) choices.get(0)).get("message");
 
             if (!(messageObject instanceof Map<?, ?> message)) {
+
                 throw new IllegalStateException(
                         "Groq response message is missing");
             }
@@ -77,18 +93,29 @@ public class GroqClient implements LLMProvider {
 
             if (!(contentObject instanceof String generatedText)
                     || generatedText.isBlank()) {
+
                 throw new IllegalStateException(
                         "Groq generated an empty response");
             }
 
             return generatedText;
 
-        } catch (org.springframework.web.client.RestClientResponseException e) {
+        } catch (RestClientResponseException e) {
 
-            System.err.println("Groq API HTTP Status: " + e.getStatusCode());
-            System.err.println("Groq API Error: " + e.getResponseBodyAsString());
+            System.err.println(
+                    "Groq HTTP Status: " + e.getStatusCode());
+
+            System.err.println(
+                    "Groq API Error: " + e.getResponseBodyAsString());
 
             throw e;
+
+        } finally {
+
+            long end = System.currentTimeMillis();
+
+            System.out.println(
+                    "Groq response time: " + (end - start) + " ms");
         }
     }
 }

@@ -28,6 +28,138 @@
   letter-spacing: 1.5px;
   margin-bottom: 2px;
 }
+.practice-start-button {
+  display: block;
+  margin: 20px 0 0 auto;
+  padding: 13px 22px;
+  border: none;
+  border-radius: 9px;
+  background: #6259ce;
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.practice-start-button:hover {
+  background: #4d45b6;
+}
+
+.previous-analyses {
+  margin-top: 30px;
+  padding: 24px;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 16px;
+}
+
+.history-count {
+  min-width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-weight: 700;
+}
+
+.analysis-history-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.analysis-history-card {
+  padding: 18px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.analysis-history-card:hover {
+  border-color: #818cf8;
+  transform: translateY(-2px);
+}
+
+.history-card-top,
+.history-card-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+}
+
+.history-card-top h4 {
+  margin: 8px 0 5px;
+}
+
+.history-card-top p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.history-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.history-score strong {
+  font-size: 25px;
+  color: #4f46e5;
+}
+
+.history-score span {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.history-card-bottom {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+}
+
+.history-status {
+  color: #15803d;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.history-date {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.history-view-button {
+  border: none;
+  background: #4f46e5;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.history-view-button:hover {
+  background: #4338ca;
+}
+
+@media (max-width: 600px) {
+  .history-card-top {
+    align-items: flex-start;
+  }
+
+  .history-card-bottom {
+    align-items: flex-start;
+  }
+}
+
 
 .analysis-page-heading h2 {
   font-size: 26px;
