@@ -2,7 +2,8 @@
 import { useEffect, useState } from "react";
 import "./JobDescriptions.css";
 
-const API = "http://localhost:8080/api/jobs";
+// const API = "http://localhost:8080/api/jobs";
+const API = `${import.meta.env.VITE_API_BASE_URL}/jobs`;
 
 // Get JWT authentication header
 function getAuthHeaders() {

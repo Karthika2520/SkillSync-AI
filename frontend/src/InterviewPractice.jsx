@@ -2,7 +2,8 @@
 import { useEffect, useState } from "react";
 import "./InterviewPractice.css";
 
-const API = "http://localhost:8080/api";
+// const API = "http://localhost:8080/api";
+const API = import.meta.env.VITE_API_BASE_URL;
 
 function getAuthHeaders() {
   const token = sessionStorage.getItem("token");

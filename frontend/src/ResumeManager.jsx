@@ -2,7 +2,8 @@
 import { useEffect, useState } from "react";
 import "./ResumeManager.css";
 
-const API = "http://localhost:8080/api";
+// const API = "http://localhost:8080/api";
+const API = import.meta.env.VITE_API_BASE_URL;
 
 // Get JWT token from session storage
 function getAuthHeaders() {
