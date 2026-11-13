@@ -25,7 +25,7 @@ public class PracticeController {
     }
 
     // Generate an interview question based on weak skills
-    @PostMapping("/{analysisId}/generate")
+    @PostMapping("/{analysisId}/practice")
 public ResponseEntity<List<PracticeQuestionResponse>> generateQuestions(
         @PathVariable Long analysisId,
         @RequestParam(required = false) String difficulty) {
@@ -34,12 +34,13 @@ public ResponseEntity<List<PracticeQuestionResponse>> generateQuestions(
             pservice.generateQuestion(analysisId, difficulty));
 }
 
-    @PostMapping("/practice-attempt/{analysisId}/submit")
-    public ResponseEntity<?> answersubmission(@PathVariable("attemptId") Long attemptId,@Valid  @RequestBody PracticeAnswerRequest req)
-    {
-        return ResponseEntity.ok(pservice.submitanswer(attemptId,req));
-    }
-    
+   @PostMapping("/practice-attempts/{attemptId}/submit")
+public ResponseEntity<?> answersubmission(
+        @PathVariable("attemptId") Long attemptId,
+        @Valid @RequestBody PracticeAnswerRequest req) {
+
+    return ResponseEntity.ok(pservice.submitanswer(attemptId, req));
+}
     // GET all practice attempts for an analysis
     @GetMapping("/{analysisId}/practice-attempts")
     public ResponseEntity<List<PracticeAttemptResponse>> getPracticeHistory(

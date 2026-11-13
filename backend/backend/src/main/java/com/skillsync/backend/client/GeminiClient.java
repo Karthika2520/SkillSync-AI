@@ -59,6 +59,7 @@ public class GeminiClient implements LLMProvider {
         try {
 
             System.out.println("Calling Gemini API...");
+            System.out.println("Gemini Model: " + model);
 
             Map<?, ?> response = restClient.post()
                     .uri("/v1beta/models/" + model + ":generateContent")
@@ -110,6 +111,8 @@ public class GeminiClient implements LLMProvider {
                         "Gemini generated an empty response");
             }
 
+            System.out.println("Gemini response received successfully.");
+
             return generatedText;
 
         } catch (RestClientResponseException e) {
@@ -119,6 +122,17 @@ public class GeminiClient implements LLMProvider {
 
             System.err.println(
                     "Gemini API Error: " + e.getResponseBodyAsString());
+
+            throw e;
+
+        } catch (Exception e) {
+
+            System.err.println(
+                    "Gemini connection/request failed: "
+                            + e.getClass().getName());
+
+            System.err.println(
+                    "Gemini failure message: " + e.getMessage());
 
             throw e;
 

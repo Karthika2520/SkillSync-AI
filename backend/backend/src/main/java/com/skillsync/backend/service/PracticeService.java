@@ -65,10 +65,10 @@ public class PracticeService {
     // 1. GENERATE INTERVIEW QUESTION
     // =====================================================
 
-   
 public List<PracticeQuestionResponse> generateQuestion(
         Long analysisId, String difficulty) {
 
+    // 1. Get analysis
     Analysis analysis = arepo.findById(analysisId)
             .orElseThrow(() -> new ResponseStatusException(
                     HttpStatus.NOT_FOUND, "Analysis not found"));
@@ -80,6 +80,7 @@ public List<PracticeQuestionResponse> generateQuestion(
                 HttpStatus.BAD_REQUEST, "Analysis results are empty");
     }
 
+    // 2. Extract skills
     Map<String, Object> data = objectMapper.readValue(
             json, new TypeReference<Map<String, Object>>() {});
 
@@ -94,6 +95,7 @@ public List<PracticeQuestionResponse> generateQuestion(
     MatchingResult result =
             mser.calcuateMatch(resumeSkills, jobSkills);
 
+    // 3. Find weak skills
     List<SkillMatchItem> weakSkills = new ArrayList<>();
     weakSkills.addAll(result.getMissingSkills());
     weakSkills.addAll(result.getPartialSkills());
@@ -104,6 +106,7 @@ public List<PracticeQuestionResponse> generateQuestion(
                 "No skill gaps found for practice");
     }
 
+    // 4. Select difficulty
     Difficulty selectedDifficulty;
 
     try {
@@ -116,109 +119,250 @@ public List<PracticeQuestionResponse> generateQuestion(
                 "Difficulty must be EASY, MEDIUM or HARD");
     }
 
-    // Select up to five weak skills.
-    List<String> skills = weakSkills.stream()
-            .limit(5)
-            .map(SkillMatchItem::getSkill)
-            .toList();
+    // 5. Select one weak skill
+    String skill = weakSkills.get(0).getSkill();
 
+    // 6. Generate only one question
     String prompt = """
-            Generate exactly 5 different technical interview questions.
+            Generate exactly ONE technical interview question.
 
-            Skills: %s
+            Skill: %s
             Difficulty: %s
 
-            Distribute questions across the given skills.
-            Use only the given skills.
-            Avoid duplicate questions.
-            Expected points: 3 per question.
+            Rules:
+            1. Generate one clear technical interview question.
+            2. Use only the given skill.
+            3. Provide exactly 3 expected answer points.
+            4. Provide one short hint.
+            5. Do not generate multiple questions.
 
-            Return ONLY valid JSON:
+            Return ONLY valid JSON in this exact structure:
 
             {
-              "questions": [
-                {
-                  "skill": "Java",
-                  "question": "Question text",
-                  "expectedPoints": ["Point 1", "Point 2", "Point 3"],
-                  "hint": "Short hint"
-                }
-              ]
+              "skill": "Java",
+              "question": "Question text",
+              "expectedPoints": [
+                "Point 1",
+                "Point 2",
+                "Point 3"
+              ],
+              "hint": "Short hint"
             }
-            """.formatted(skills, selectedDifficulty);
+            """.formatted(skill, selectedDifficulty);
 
-    System.out.println("Generating 5 practice questions...");
+    System.out.println("Generating 1 practice question...");
 
+    // 7. Call Gemini with Groq fallback
     Map<String, Object> aiData = generateJsonWithFallback(prompt);
 
-    List<Map<String, Object>> questions = objectMapper.convertValue(
-            aiData.get("questions"),
-            new TypeReference<List<Map<String, Object>>>() {});
+    // 8. Extract question details
+    String generatedSkill = (String) aiData.get("skill");
+    String question = (String) aiData.get("question");
+    String hint = (String) aiData.get("hint");
 
-    if (questions == null || questions.size() < 5) {
+    if (generatedSkill == null || !generatedSkill.equals(skill)) {
+        generatedSkill = skill;
+    }
+
+    if (question == null || question.isBlank()) {
         throw new ResponseStatusException(
                 HttpStatus.BAD_GATEWAY,
-                "AI generated fewer than 5 questions");
+                "AI generated an invalid question");
     }
 
-    List<PracticeQuestionResponse> responses = new ArrayList<>();
+    List<String> expectedPoints = objectMapper.convertValue(
+            aiData.get("expectedPoints"),
+            new TypeReference<List<String>>() {});
 
-    for (int i = 0; i < 5; i++) {
-
-        Map<String, Object> questionData = questions.get(i);
-
-        String skill = (String) questionData.get("skill");
-        String question = (String) questionData.get("question");
-        String hint = (String) questionData.get("hint");
-
-        if (skill == null || !skills.contains(skill)) {
-            skill = skills.get(i % skills.size());
-        }
-
-        if (question == null || question.isBlank()) {
-            continue;
-        }
-
-        List<String> expectedPoints = objectMapper.convertValue(
-                questionData.get("expectedPoints"),
-                new TypeReference<List<String>>() {});
-
-        if (expectedPoints == null || expectedPoints.isEmpty()) {
-            continue;
-        }
-
-        PracticeAttempt attempt = new PracticeAttempt();
-
-        attempt.setAnalysis(analysis);
-        attempt.setSkill(skill);
-        attempt.setQuestion(question);
-        attempt.setDifficulty(selectedDifficulty);
-        attempt.setExpectedPoints(
-                objectMapper.writeValueAsString(expectedPoints));
-        attempt.setHint(hint);
-        attempt.setStatus(Status.GENERATED);
-
-        PracticeAttempt saved = prepo.save(attempt);
-
-        responses.add(new PracticeQuestionResponse(
-                saved.getId(),
-                saved.getSkill(),
-                saved.getQuestion(),
-                saved.getDifficulty(),
-                saved.getHint(),
-                saved.getStatus(),
-                saved.getCreatedAt()
-        ));
-    }
-
-    if (responses.size() < 5) {
+    if (expectedPoints == null || expectedPoints.isEmpty()) {
         throw new ResponseStatusException(
                 HttpStatus.BAD_GATEWAY,
-                "Could not generate 5 valid practice questions");
+                "AI generated no expected answer points");
     }
 
-    return responses;
+    // 9. Save one practice attempt
+    PracticeAttempt attempt = new PracticeAttempt();
+
+    attempt.setAnalysis(analysis);
+    attempt.setSkill(generatedSkill);
+    attempt.setQuestion(question);
+    attempt.setDifficulty(selectedDifficulty);
+    attempt.setExpectedPoints(
+            objectMapper.writeValueAsString(expectedPoints));
+    attempt.setHint(hint);
+    attempt.setStatus(Status.GENERATED);
+
+    PracticeAttempt saved = prepo.save(attempt);
+
+    // 10. Return one question inside a list
+    PracticeQuestionResponse response =
+            new PracticeQuestionResponse(
+                    saved.getId(),
+                    saved.getSkill(),
+                    saved.getQuestion(),
+                    saved.getDifficulty(),
+                    saved.getHint(),
+                    saved.getStatus(),
+                    saved.getCreatedAt()
+            );
+
+    return List.of(response);
 }
+
+   
+// public List<PracticeQuestionResponse> generateQuestion(
+//         Long analysisId, String difficulty) {
+
+//     Analysis analysis = arepo.findById(analysisId)
+//             .orElseThrow(() -> new ResponseStatusException(
+//                     HttpStatus.NOT_FOUND, "Analysis not found"));
+
+//     String json = analysis.getResultsJson();
+
+//     if (json == null || json.isBlank()) {
+//         throw new ResponseStatusException(
+//                 HttpStatus.BAD_REQUEST, "Analysis results are empty");
+//     }
+
+//     Map<String, Object> data = objectMapper.readValue(
+//             json, new TypeReference<Map<String, Object>>() {});
+
+//     List<SkillEvidence> resumeSkills = objectMapper.convertValue(
+//             data.get("ResumeSkills"),
+//             new TypeReference<List<SkillEvidence>>() {});
+
+//     List<SkillEvidence> jobSkills = objectMapper.convertValue(
+//             data.get("JobSkills"),
+//             new TypeReference<List<SkillEvidence>>() {});
+
+//     MatchingResult result =
+//             mser.calcuateMatch(resumeSkills, jobSkills);
+
+//     List<SkillMatchItem> weakSkills = new ArrayList<>();
+//     weakSkills.addAll(result.getMissingSkills());
+//     weakSkills.addAll(result.getPartialSkills());
+
+//     if (weakSkills.isEmpty()) {
+//         throw new ResponseStatusException(
+//                 HttpStatus.BAD_REQUEST,
+//                 "No skill gaps found for practice");
+//     }
+
+//     Difficulty selectedDifficulty;
+
+//     try {
+//         selectedDifficulty = (difficulty == null || difficulty.isBlank())
+//                 ? Difficulty.MEDIUM
+//                 : Difficulty.valueOf(difficulty.trim().toUpperCase());
+//     } catch (IllegalArgumentException ex) {
+//         throw new ResponseStatusException(
+//                 HttpStatus.BAD_REQUEST,
+//                 "Difficulty must be EASY, MEDIUM or HARD");
+//     }
+
+//     // Select up to five weak skills.
+//     List<String> skills = weakSkills.stream()
+//             .limit(5)
+//             .map(SkillMatchItem::getSkill)
+//             .toList();
+
+//     String prompt = """
+//             Generate exactly 5 different technical interview questions.
+
+//             Skills: %s
+//             Difficulty: %s
+
+//             Distribute questions across the given skills.
+//             Use only the given skills.
+//             Avoid duplicate questions.
+//             Expected points: 3 per question.
+
+//             Return ONLY valid JSON:
+
+//             {
+//               "questions": [
+//                 {
+//                   "skill": "Java",
+//                   "question": "Question text",
+//                   "expectedPoints": ["Point 1", "Point 2", "Point 3"],
+//                   "hint": "Short hint"
+//                 }
+//               ]
+//             }
+//             """.formatted(skills, selectedDifficulty);
+
+//     System.out.println("Generating 5 practice questions...");
+
+//     Map<String, Object> aiData = generateJsonWithFallback(prompt);
+
+//     List<Map<String, Object>> questions = objectMapper.convertValue(
+//             aiData.get("questions"),
+//             new TypeReference<List<Map<String, Object>>>() {});
+
+//     if (questions == null || questions.size() < 5) {
+//         throw new ResponseStatusException(
+//                 HttpStatus.BAD_GATEWAY,
+//                 "AI generated fewer than 5 questions");
+//     }
+
+//     List<PracticeQuestionResponse> responses = new ArrayList<>();
+
+//     for (int i = 0; i < 5; i++) {
+
+//         Map<String, Object> questionData = questions.get(i);
+
+//         String skill = (String) questionData.get("skill");
+//         String question = (String) questionData.get("question");
+//         String hint = (String) questionData.get("hint");
+
+//         if (skill == null || !skills.contains(skill)) {
+//             skill = skills.get(i % skills.size());
+//         }
+
+//         if (question == null || question.isBlank()) {
+//             continue;
+//         }
+
+//         List<String> expectedPoints = objectMapper.convertValue(
+//                 questionData.get("expectedPoints"),
+//                 new TypeReference<List<String>>() {});
+
+//         if (expectedPoints == null || expectedPoints.isEmpty()) {
+//             continue;
+//         }
+
+//         PracticeAttempt attempt = new PracticeAttempt();
+
+//         attempt.setAnalysis(analysis);
+//         attempt.setSkill(skill);
+//         attempt.setQuestion(question);
+//         attempt.setDifficulty(selectedDifficulty);
+//         attempt.setExpectedPoints(
+//                 objectMapper.writeValueAsString(expectedPoints));
+//         attempt.setHint(hint);
+//         attempt.setStatus(Status.GENERATED);
+
+//         PracticeAttempt saved = prepo.save(attempt);
+
+//         responses.add(new PracticeQuestionResponse(
+//                 saved.getId(),
+//                 saved.getSkill(),
+//                 saved.getQuestion(),
+//                 saved.getDifficulty(),
+//                 saved.getHint(),
+//                 saved.getStatus(),
+//                 saved.getCreatedAt()
+//         ));
+//     }
+
+//     if (responses.size() < 5) {
+//         throw new ResponseStatusException(
+//                 HttpStatus.BAD_GATEWAY,
+//                 "Could not generate 5 valid practice questions");
+//     }
+
+//     return responses;
+// }
 
 
 
@@ -227,171 +371,362 @@ public List<PracticeQuestionResponse> generateQuestion(
     // 2. SUBMIT ANSWER AND GENERATE FEEDBACK
     // =====================================================
 
-    public PracticeFeedbackResponse submitanswer(
-            Long attemptId,
-            PracticeAnswerRequest request) {
+public PracticeFeedbackResponse submitanswer(
+        Long attemptId,
+        PracticeAnswerRequest request) {
 
-        // 1. Retrieve practice attempt
-        PracticeAttempt attempt = prepo.findById(attemptId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Practice attempt not found"));
+    // 1. Retrieve practice attempt
+    PracticeAttempt attempt = prepo.findById(attemptId)
+            .orElseThrow(() -> new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Practice attempt not found"));
 
-        System.out.println("Practice attempt found: " + attemptId);
-
-
-        // 2. Prevent submitting an already evaluated attempt
-        if (attempt.getStatus() != Status.GENERATED) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "This practice question has already been submitted");
-        }
+    System.out.println("Practice attempt found: " + attemptId);
 
 
-        // 3. Get user's answer
-        String answer = request.getAnswer().trim();
+    // 2. Validate request
+    if (request == null
+            || request.getAnswer() == null
+            || request.getAnswer().isBlank()) {
+
+        throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Answer cannot be empty");
+    }
 
 
-        // 4. Save user's answer
-        attempt.setUserAnswer(answer);
-        attempt.setSubmittedAt(LocalDateTime.now());
-        attempt.setStatus(Status.SUBMITTED);
+    // 3. Prevent duplicate submission
+    if (attempt.getStatus() != Status.GENERATED) {
 
-        prepo.save(attempt);
-
-
-        // 5. Prepare evaluation prompt
-        String prompt = """
-                You are a technical interview evaluator.
-
-                Evaluate the candidate's answer using the expected answer points.
-
-                Skill: %s
-                Difficulty: %s
-
-                Question:
-                %s
-
-                Expected answer points:
-                %s
-
-                Candidate's answer:
-                %s
-
-                Return ONLY valid JSON using this exact structure:
-
-                {
-                  "coveredPoints": [
-                    "Concept correctly explained"
-                  ],
-                  "missingPoints": [
-                    "Important concept not explained"
-                  ],
-                  "explanation": "Overall evaluation of the answer",
-                  "nextSteps": [
-                    "What the candidate should improve"
-                  ]
-                }
-
-                Rules:
-                1. Evaluate only technical correctness and relevance.
-                2. Do not mark a point covered unless the answer demonstrates it.
-                3. Do not penalize different but technically correct wording.
-                4. Keep feedback constructive and beginner-friendly.
-                5. Return valid JSON only, without Markdown or code fences.
-                """.formatted(
-                attempt.getSkill(),
-                attempt.getDifficulty(),
-                attempt.getQuestion(),
-                attempt.getExpectedPoints(),
-                answer
-        );
+        throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "This practice question has already been submitted");
+    }
 
 
-        // 6. Generate evaluation using Gemini with Groq fallback
-        System.out.println("Generating answer evaluation");
-
-        Map<String, Object> feedbackData;
-
-        try {
-
-            feedbackData = generateJsonWithFallback(prompt);
-
-        } catch (ResponseStatusException ex) {
-
-            // Both providers failed
-            attempt.setStatus(Status.FAILED);
-            prepo.save(attempt);
-
-            throw ex;
-        }
+    // 4. Get user's answer
+    String answer = request.getAnswer().trim();
 
 
-        // 7. Extract covered points
-        List<String> coveredPoints = objectMapper.convertValue(
-                feedbackData.get("coveredPoints"),
-                new TypeReference<List<String>>() {}
-        );
+    // 5. Save answer immediately
+    attempt.setUserAnswer(answer);
+    attempt.setSubmittedAt(LocalDateTime.now());
+    attempt.setStatus(Status.SUBMITTED);
+
+    attempt = prepo.saveAndFlush(attempt);
+
+    System.out.println(
+            "Answer saved successfully for attempt: "
+                    + attempt.getId());
 
 
-        // 8. Extract missing points
-        List<String> missingPoints = objectMapper.convertValue(
-                feedbackData.get("missingPoints"),
-                new TypeReference<List<String>>() {}
-        );
+    // 6. Prepare evaluation prompt
+    String prompt = """
+            You are a technical interview evaluator.
+
+            Evaluate the candidate's answer using the expected answer points.
+
+            Skill: %s
+            Difficulty: %s
+
+            Question:
+            %s
+
+            Expected answer points:
+            %s
+
+            Candidate's answer:
+            %s
+
+            Return ONLY valid JSON using this exact structure:
+
+            {
+              "coveredPoints": [
+                "Concept correctly explained"
+              ],
+              "missingPoints": [
+                "Important concept not explained"
+              ],
+              "explanation": "Overall evaluation of the answer",
+              "nextSteps": [
+                "What the candidate should improve"
+              ]
+            }
+
+            Rules:
+            1. Evaluate only technical correctness and relevance.
+            2. Do not mark a point covered unless the answer demonstrates it.
+            3. Do not penalize different but technically correct wording.
+            4. Keep feedback constructive and beginner-friendly.
+            5. Return valid JSON only, without Markdown or code fences.
+            """.formatted(
+            attempt.getSkill(),
+            attempt.getDifficulty(),
+            attempt.getQuestion(),
+            attempt.getExpectedPoints(),
+            answer
+    );
 
 
-        // 9. Extract explanation
-        String explanation =
-                (String) feedbackData.get("explanation");
+    // 7. Generate evaluation using Gemini with Groq fallback
+    System.out.println("Generating answer evaluation...");
 
+    Map<String, Object> feedbackData;
 
-        // 10. Extract next steps
-        List<String> nextSteps = objectMapper.convertValue(
-                feedbackData.get("nextSteps"),
-                new TypeReference<List<String>>() {}
-        );
+    try {
 
+        feedbackData = generateJsonWithFallback(prompt);
 
-        // 11. Handle null values
-        if (coveredPoints == null) {
-            coveredPoints = new ArrayList<>();
-        }
+    } catch (Exception ex) {
 
-        if (missingPoints == null) {
-            missingPoints = new ArrayList<>();
-        }
+        // Preserve the submitted answer if AI evaluation fails
+        attempt.setStatus(Status.FAILED);
+        prepo.saveAndFlush(attempt);
 
-        if (nextSteps == null) {
-            nextSteps = new ArrayList<>();
-        }
+        System.err.println(
+                "Answer evaluation failed: " + ex.getMessage());
 
-        if (explanation == null || explanation.isBlank()) {
-            explanation = "Evaluation completed.";
-        }
-
-
-        // 12. Save feedback in database
-        attempt.setFeedback(
-                objectMapper.writeValueAsString(feedbackData));
-
-        attempt.setStatus(Status.EVALUATED);
-
-        PracticeAttempt saved = prepo.save(attempt);
-
-
-        // 13. Return feedback response
-        return new PracticeFeedbackResponse(
-                saved.getId(),
-                saved.getSkill(),
-                saved.getUserAnswer(),
-                coveredPoints,
-                missingPoints,
-                explanation,
-                nextSteps,
-                saved.getStatus().name()
+        throw new ResponseStatusException(
+                HttpStatus.BAD_GATEWAY,
+                "Answer saved successfully, but AI evaluation failed. Please try again later.",
+                ex
         );
     }
+
+
+    // 8. Extract covered points
+    List<String> coveredPoints = objectMapper.convertValue(
+            feedbackData.get("coveredPoints"),
+            new TypeReference<List<String>>() {}
+    );
+
+
+    // 9. Extract missing points
+    List<String> missingPoints = objectMapper.convertValue(
+            feedbackData.get("missingPoints"),
+            new TypeReference<List<String>>() {}
+    );
+
+
+    // 10. Extract explanation
+    String explanation =
+            feedbackData.get("explanation") instanceof String value
+                    ? value
+                    : "Evaluation completed.";
+
+
+    // 11. Extract next steps
+    List<String> nextSteps = objectMapper.convertValue(
+            feedbackData.get("nextSteps"),
+            new TypeReference<List<String>>() {}
+    );
+
+
+    // 12. Handle missing values
+    if (coveredPoints == null) {
+        coveredPoints = new ArrayList<>();
+    }
+
+    if (missingPoints == null) {
+        missingPoints = new ArrayList<>();
+    }
+
+    if (nextSteps == null) {
+        nextSteps = new ArrayList<>();
+    }
+
+
+    // 13. Save feedback
+    attempt.setFeedback(
+            objectMapper.writeValueAsString(feedbackData));
+
+    attempt.setStatus(Status.EVALUATED);
+
+    PracticeAttempt saved = prepo.saveAndFlush(attempt);
+
+    System.out.println(
+            "Feedback saved successfully for attempt: "
+                    + saved.getId());
+
+
+    // 14. Return feedback response
+    return new PracticeFeedbackResponse(
+            saved.getId(),
+            saved.getSkill(),
+            saved.getUserAnswer(),
+            coveredPoints,
+            missingPoints,
+            explanation,
+            nextSteps,
+            saved.getStatus().name()
+    );
+}
+
+//     public PracticeFeedbackResponse submitanswer(
+//             Long attemptId,
+//             PracticeAnswerRequest request) {
+
+//         // 1. Retrieve practice attempt
+//         PracticeAttempt attempt = prepo.findById(attemptId)
+//                 .orElseThrow(() -> new ResponseStatusException(
+//                         HttpStatus.NOT_FOUND,
+//                         "Practice attempt not found"));
+
+//         System.out.println("Practice attempt found: " + attemptId);
+
+
+//         // 2. Prevent submitting an already evaluated attempt
+//         if (attempt.getStatus() != Status.GENERATED) {
+//             throw new ResponseStatusException(
+//                     HttpStatus.BAD_REQUEST,
+//                     "This practice question has already been submitted");
+//         }
+
+
+//         // 3. Get user's answer
+//         String answer = request.getAnswer().trim();
+
+
+//         // 4. Save user's answer
+//         attempt.setUserAnswer(answer);
+//         attempt.setSubmittedAt(LocalDateTime.now());
+//         attempt.setStatus(Status.SUBMITTED);
+
+//         prepo.save(attempt);
+
+
+//         // 5. Prepare evaluation prompt
+//         String prompt = """
+//                 You are a technical interview evaluator.
+
+//                 Evaluate the candidate's answer using the expected answer points.
+
+//                 Skill: %s
+//                 Difficulty: %s
+
+//                 Question:
+//                 %s
+
+//                 Expected answer points:
+//                 %s
+
+//                 Candidate's answer:
+//                 %s
+
+//                 Return ONLY valid JSON using this exact structure:
+
+//                 {
+//                   "coveredPoints": [
+//                     "Concept correctly explained"
+//                   ],
+//                   "missingPoints": [
+//                     "Important concept not explained"
+//                   ],
+//                   "explanation": "Overall evaluation of the answer",
+//                   "nextSteps": [
+//                     "What the candidate should improve"
+//                   ]
+//                 }
+
+//                 Rules:
+//                 1. Evaluate only technical correctness and relevance.
+//                 2. Do not mark a point covered unless the answer demonstrates it.
+//                 3. Do not penalize different but technically correct wording.
+//                 4. Keep feedback constructive and beginner-friendly.
+//                 5. Return valid JSON only, without Markdown or code fences.
+//                 """.formatted(
+//                 attempt.getSkill(),
+//                 attempt.getDifficulty(),
+//                 attempt.getQuestion(),
+//                 attempt.getExpectedPoints(),
+//                 answer
+//         );
+
+
+//         // 6. Generate evaluation using Gemini with Groq fallback
+//         System.out.println("Generating answer evaluation");
+
+//         Map<String, Object> feedbackData;
+
+//         try {
+
+//             feedbackData = generateJsonWithFallback(prompt);
+
+//         } catch (ResponseStatusException ex) {
+
+//             // Both providers failed
+//             attempt.setStatus(Status.FAILED);
+//             prepo.save(attempt);
+
+//             throw ex;
+//         }
+
+
+//         // 7. Extract covered points
+//         List<String> coveredPoints = objectMapper.convertValue(
+//                 feedbackData.get("coveredPoints"),
+//                 new TypeReference<List<String>>() {}
+//         );
+
+
+//         // 8. Extract missing points
+//         List<String> missingPoints = objectMapper.convertValue(
+//                 feedbackData.get("missingPoints"),
+//                 new TypeReference<List<String>>() {}
+//         );
+
+
+//         // 9. Extract explanation
+//         String explanation =
+//                 (String) feedbackData.get("explanation");
+
+
+//         // 10. Extract next steps
+//         List<String> nextSteps = objectMapper.convertValue(
+//                 feedbackData.get("nextSteps"),
+//                 new TypeReference<List<String>>() {}
+//         );
+
+
+//         // 11. Handle null values
+//         if (coveredPoints == null) {
+//             coveredPoints = new ArrayList<>();
+//         }
+
+//         if (missingPoints == null) {
+//             missingPoints = new ArrayList<>();
+//         }
+
+//         if (nextSteps == null) {
+//             nextSteps = new ArrayList<>();
+//         }
+
+//         if (explanation == null || explanation.isBlank()) {
+//             explanation = "Evaluation completed.";
+//         }
+
+
+//         // 12. Save feedback in database
+//         attempt.setFeedback(
+//                 objectMapper.writeValueAsString(feedbackData));
+
+//         attempt.setStatus(Status.EVALUATED);
+
+//         PracticeAttempt saved = prepo.save(attempt);
+
+
+//         // 13. Return feedback response
+//         return new PracticeFeedbackResponse(
+//                 saved.getId(),
+//                 saved.getSkill(),
+//                 saved.getUserAnswer(),
+//                 coveredPoints,
+//                 missingPoints,
+//                 explanation,
+//                 nextSteps,
+//                 saved.getStatus().name()
+//         );
+//     }
 
 
 

@@ -48,15 +48,15 @@ public class GroqClient implements LLMProvider {
                                 "content", prompt
                         )
                 ),
-                "max_tokens", 512,
-                "response_format", Map.of(
-                        "type", "json_object"
-                )
+                "max_completion_tokens", 2048,
+                "reasoning_effort", "low",
+                "include_reasoning", false
         );
 
         try {
 
             System.out.println("Calling Groq API...");
+            System.out.println("Groq Model: " + model);
 
             Map<?, ?> response = restClient.post()
                     .uri("/chat/completions")
@@ -80,8 +80,9 @@ public class GroqClient implements LLMProvider {
                         "Groq returned no choices");
             }
 
-            Object messageObject =
-                    ((Map<?, ?>) choices.get(0)).get("message");
+            Map<?, ?> choice = (Map<?, ?>) choices.get(0);
+
+            Object messageObject = choice.get("message");
 
             if (!(messageObject instanceof Map<?, ?> message)) {
 
@@ -94,9 +95,16 @@ public class GroqClient implements LLMProvider {
             if (!(contentObject instanceof String generatedText)
                     || generatedText.isBlank()) {
 
+                System.err.println("Groq message: " + message);
+                System.err.println(
+                        "Groq finish reason: " + choice.get("finish_reason"));
+
                 throw new IllegalStateException(
                         "Groq generated an empty response");
             }
+
+            System.out.println(
+                    "Groq response received successfully.");
 
             return generatedText;
 
