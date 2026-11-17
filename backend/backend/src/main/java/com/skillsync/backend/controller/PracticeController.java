@@ -1,7 +1,6 @@
 
 package com.skillsync.backend.controller;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,7 +14,7 @@ import com.skillsync.backend.dto.PracticeAttemptResponse;
 
 @RestController
 @RequestMapping("/api/analysis")
-@CrossOrigin(origins = "http://localhost:5173")
+
 public class PracticeController {
 
     private final PracticeService pservice;
