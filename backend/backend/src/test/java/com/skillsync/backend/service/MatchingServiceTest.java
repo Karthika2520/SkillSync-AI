@@ -5,14 +5,24 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.skillsync.backend.config.SkillMatchingConfig;
 import com.skillsync.backend.dto.MatchingResult;
 import com.skillsync.backend.dto.SkillEvidence;
 
 class MatchingServiceTest {
 
-    MatchingService matchingService = new MatchingService();
+    MatchingService matchingService;
+
+    @BeforeEach
+    void setUp() {
+
+        SkillMatchingConfig config = new SkillMatchingConfig();
+
+        matchingService = new MatchingService(config);
+    }
 
     // Test 1: Match skills
     @Test

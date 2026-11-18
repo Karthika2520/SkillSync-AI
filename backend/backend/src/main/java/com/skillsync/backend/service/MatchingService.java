@@ -11,6 +11,7 @@ import java.util.Set;
 
 import org.springframework.stereotype.Service;
 
+import com.skillsync.backend.config.SkillMatchingConfig;
 import com.skillsync.backend.dto.MatchingResult;
 import com.skillsync.backend.dto.SkillEvidence;
 import com.skillsync.backend.dto.SkillMatchItem;
@@ -18,21 +19,12 @@ import com.skillsync.backend.dto.SkillMatchItem;
 @Service 
 public class MatchingService 
 {
-    // private SkillExtractionService skillser;
-    // public MatchingService(SkillExtractionService s)
-    // {
-    //     this.skillser=s;
-    // }
+    private final SkillMatchingConfig skillMatchingConfig;
 
-    // stores the related skills
-    private final Map<String,List<String>> relatedskills=Map.of(
-        "spring boot",List.of("spring framework"),
-        "spring framework",List.of("spring boot"),
-        "mysql", List.of("sql"),
-        "postgresql", List.of("sql"),
-        "react", List.of("javascript"),
-        "javascript",List.of("react")
-    );
+public MatchingService(SkillMatchingConfig skillMatchingConfig) {
+    this.skillMatchingConfig = skillMatchingConfig;
+}
+
     
    
     public MatchingResult calcuateMatch(List<SkillEvidence> resumeskills,List<SkillEvidence> jobskills)
@@ -78,7 +70,7 @@ public class MatchingService
             if(key.isBlank() || !processedRequirements.add(key))
             continue;
 
-            int weight=getweight(key);
+            int weight=skillMatchingConfig.getWeight(key);
             totalweight+=weight;
 
             String evidence=resumeEvidence.get(key);
@@ -120,40 +112,27 @@ public class MatchingService
             return skill.trim().toLowerCase();
         }
 
-    private int getweight(String skill)
-    {
-        if(skill.equals("java")||skill.equals("spring boot"))
-        {
-            return 3;
-        }
-        else if(skill.equals("sql"))
-        {
-            return 2;
-        }
-        else if(skill.equals("git")||skill.equals("communication"))
-        {
-            return 1;
-        }
-        return 1;
-    }
+    
 
-    private String findrelatedEvidence(String requiredskill,Map<String,String>resumeEvidence)
-    {
-        List<String> related =relatedskills.get(requiredskill);
+   private String findrelatedEvidence(
+        String requiredSkill,
+        Map<String, String> resumeEvidence) {
 
-        if(related==null)
-        {
+    List<String> related =
+            skillMatchingConfig.getRelatedSkills(requiredSkill);
+            
+            if(related==null ||related.isEmpty())
             return null;
+
+    for (String skill : related) {
+
+        if (resumeEvidence.containsKey(skill)) {
+            return resumeEvidence.get(skill);
         }
-        for(String r:related)
-        {
-            if(resumeEvidence.containsKey(r))
-            {
-                return resumeEvidence.get(r);
-            }
-        }
-        return null;
     }
+
+    return null;
+}
 
 
 

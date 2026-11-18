@@ -281,7 +281,7 @@ export default function InterviewPractice({ analysisId }) {
           <div>
             <h2>Practice Your Skills</h2>
             <p>
-              Generate five targeted interview questions
+              Generate targeted interview questions
               based on your skill gaps.
             </p>
           </div>
@@ -316,7 +316,7 @@ export default function InterviewPractice({ analysisId }) {
           >
             {loadingQuestion
               ? "Generating..."
-              : "Generate 5 Questions"}
+              : "Generate Question"}
 
             {!loadingQuestion && <span>→</span>}
           </button>
@@ -324,7 +324,7 @@ export default function InterviewPractice({ analysisId }) {
         </div>
 
         <p className="practice-helper">
-          Five questions are generated using the skills
+          Questions are generated using the skills
           identified in your resume analysis.
         </p>
 
@@ -350,7 +350,7 @@ export default function InterviewPractice({ analysisId }) {
       {loadingQuestion && (
         <div className="practice-loading">
           <div className="practice-spinner"></div>
-          <p>AI is preparing your five interview questions...</p>
+          <p>AI is preparing your interview questions...</p>
         </div>
       )}
 

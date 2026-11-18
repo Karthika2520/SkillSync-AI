@@ -614,4 +614,21 @@
   .submit-answer-button {
     width: 100%;
   }
+
+}
+/* Align completed question count */
+.question-card > .question-card-header .history-count {
+  width: auto;
+  height: auto;
+  min-width: max-content;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  padding: 0;
+  white-space: nowrap;
+  text-align: center;
+  font-size: 16px;
+  line-height: 1.4;
+  flex-shrink: 0;
 }
